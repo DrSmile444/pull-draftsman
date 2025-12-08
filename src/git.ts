@@ -5,7 +5,8 @@ export interface CommitInfo {
   message: string;
 }
 
-const BASE_BRANCH_CANDIDATES = ['main', 'master', 'develop', 'dev', 'stage', 'staging', 'release', 'production', 'prod'];
+// Adjust this list to your workflow
+const BASE_BRANCH_CANDIDATES = ['stage', 'staging', 'develop', 'dev', 'main', 'master', 'release'];
 
 export async function createGitClient(baseDir: string): Promise<SimpleGit> {
   const git = simpleGit({ baseDir });
@@ -45,9 +46,32 @@ export async function fetchRemote(git: SimpleGit, remoteName: string): Promise<v
   await git.fetch(remoteName);
 }
 
+interface BranchDistance {
+  shortName: string;
+  remoteRef: string;
+  ahead: number;
+}
+
+/**
+ * Try to infer the base branch of the current HEAD.
+ *
+ * - If `explicitBase` is provided, validates it and returns it.
+ * - Otherwise:
+ *   - checks remote branches on `remoteName`
+ *   - prefers branches from BASE_BRANCH_CANDIDATES
+ *   - picks the one with the smallest "ahead" distance from HEAD
+ *
+ * Example:
+ *   main ──┐
+ *          ├─ stage ──┐
+ *                      └─ feature/add-new-user (HEAD)
+ *
+ * For HEAD on `feature/add-new-user`, this will return `${remote}/stage`.
+ */
 export async function resolveBaseBranchName(git: SimpleGit, remoteName: string, explicitBase?: string): Promise<string> {
-  const branchesSummary = await git.branch(['-r']);
-  const remoteBranches = branchesSummary.all;
+  // All remote branches (e.g. origin/main, origin/stage, ...)
+  const remoteSummary = await git.branch(['-r']);
+  const remoteBranches = remoteSummary.all.filter((name) => !name.includes('->'));
 
   if (explicitBase) {
     const fullName = `${remoteName}/${explicitBase}`;
@@ -62,6 +86,74 @@ export async function resolveBaseBranchName(git: SimpleGit, remoteName: string, 
     return explicitBase;
   }
 
+  // Current local branch name (e.g. "feature/add-new-user")
+  const localSummary = await git.branch();
+  const currentBranch = localSummary.current;
+
+  // Current HEAD commit hash
+  const headSha = (await git.revparse(['HEAD'])).trim();
+
+  // 1) Filter remote branches belonging to this remote
+  //    and ignore the remote branch for the current branch itself.
+  const remoteBranchesForRemote = remoteBranches
+    .filter((name) => name.startsWith(`${remoteName}/`))
+    .filter((name) => {
+      const short = name.slice(remoteName.length + 1);
+
+      return short !== currentBranch;
+    });
+
+  if (remoteBranchesForRemote.length === 0) {
+    throw new Error(
+      `No remote branches found on "${remoteName}". ` + 'Make sure you have fetched the remote (e.g. "git fetch --all --prune").',
+    );
+  }
+
+  // 2) Prefer only branches from BASE_BRANCH_CANDIDATES, if present.
+  const prioritizedRemoteBranches = remoteBranchesForRemote.filter((fullName) => {
+    const short = fullName.slice(remoteName.length + 1);
+
+    return BASE_BRANCH_CANDIDATES.includes(short);
+  });
+
+  const candidates = prioritizedRemoteBranches.length > 0 ? prioritizedRemoteBranches : remoteBranchesForRemote;
+
+  let best: BranchDistance | undefined;
+
+  for (const remoteReference of candidates) {
+    const shortName = remoteReference.slice(remoteName.length + 1);
+
+    try {
+      // Common ancestor between HEAD and this candidate branch
+      const mergeBase = (await git.raw(['merge-base', headSha, remoteReference])).trim();
+
+      if (!mergeBase) {
+        continue;
+      }
+
+      // How many commits is HEAD ahead of the merge base?
+      // Smaller = closer ancestor = more likely base branch.
+      const aheadString = (await git.raw(['rev-list', '--count', `${mergeBase}..${headSha}`])).trim();
+      const ahead = Number.parseInt(aheadString, 10);
+
+      if (!Number.isFinite(ahead)) {
+        continue;
+      }
+
+      if (!best || ahead < best.ahead) {
+        best = { shortName, remoteRef: remoteReference, ahead };
+      }
+    } catch {
+      // If merge-base fails (unrelated histories, etc.), just skip this branch.
+      continue;
+    }
+  }
+
+  if (best) {
+    return best.shortName;
+  }
+
+  // 3) Fallback to old behaviour if heuristic fails for some reason
   for (const candidate of BASE_BRANCH_CANDIDATES) {
     const fullName = `${remoteName}/${candidate}`;
 
