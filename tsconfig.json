@@ -1,26 +1,16 @@
 {
-  "$schema": "https://json.schemastore.org/tsconfig",
   "compilerOptions": {
-    "moduleResolution": "node",
-    "target": "esnext",
-    "baseUrl": "./src",
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "moduleDetection": "force",
+    "baseUrl": "./",
     "strict": true,
-    "allowJs": true,
+    "esModuleInterop": true,
     "skipLibCheck": true,
-    "paths": {
-      "@config/*": ["config/*"],
-      "@decorators/*": ["decorators/*"],
-      "@fixtures/*": ["fixtures/*"],
-      "@interfaces/*": ["interfaces/*"],
-      "@interfaces": ["interfaces"],
-      "@models/*": ["models/*"],
-      "@pages/*": ["pages/*"],
-      "@test-data/*": ["test-data/*"],
-      "@tests/*": ["tests/*"],
-      "@utils/*": ["utils/*"]
-    },
     "resolveJsonModule": true,
-    "esModuleInterop": true
+    "forceConsistentCasingInFileNames": true,
+    "outDir": "dist"
   },
   "include": [".eslint", "src", "tests", "scripts", "vitest.config.ts"]
 }
