@@ -3,11 +3,12 @@ import type { CommitInfo } from './git';
 export interface PrDraftMarkdownParameters {
   branchName: string;
   baseBranchName: string;
+  remoteName: string;
   commits: CommitInfo[];
 }
 
 export function buildPrDraftMarkdown(parameters: PrDraftMarkdownParameters): string {
-  const { branchName, baseBranchName, commits } = parameters;
+  const { branchName, baseBranchName, remoteName, commits } = parameters;
 
   const commitLines =
     commits.length > 0
@@ -17,7 +18,7 @@ export function buildPrDraftMarkdown(parameters: PrDraftMarkdownParameters): str
   return [
     `Branch: ${branchName}`,
     '',
-    `Base: ${baseBranchName}`,
+    `Base: ${remoteName}/${baseBranchName}`,
     '',
     'New commits:',
     '',

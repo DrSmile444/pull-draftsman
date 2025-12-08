@@ -80,6 +80,7 @@ async function run(): Promise<void> {
   const markdownContent = buildPrDraftMarkdown({
     branchName,
     baseBranchName,
+    remoteName,
     commits,
   });
 
