@@ -12,5 +12,5 @@
     "forceConsistentCasingInFileNames": true,
     "outDir": "dist"
   },
-  "include": [".eslint", "src", "tests", "scripts", "vitest.config.ts"]
+  "include": [".eslint", "src", "tests", "scripts", "vitest.config.ts", "tsup.config.ts"]
 }
