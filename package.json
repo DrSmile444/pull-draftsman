@@ -26,10 +26,8 @@
   },
   "dependencies": {
     "chalk": "^5.3.0",
-    "commander": "^12.1.0",
     "execa": "^9.1.0",
-    "ora": "^8.1.0",
-    "simple-git": "^3.27.0"
+    "ora": "^8.1.0"
   },
   "devDependencies": {
     "@darraghor/eslint-plugin-nestjs-typed": "^6.9.14",
